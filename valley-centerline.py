@@ -23,9 +23,9 @@ output = args.output
 
 # Import line shapefiles
 
-input_1 = gpd.read_file("C:\LSDTopoTools\Github\Valley-Centerline\WW\Input\WW_ValleyWall_N_10mpoints.shp")
-input_2 = gpd.read_file("C:\LSDTopoTools\Github\Valley-Centerline\WW\Input\WW_ValleyWall_S_10mpoints.shp")
-
+input_1 = gpd.read_file("Input\SampleData\Whitewater\WallN.shp")
+input_2 = gpd.read_file("Input\SampleData\Whitewater\WallS.shp")
+crs = input_1.crs
 wall_1 = shapely.geometry.shape(input_1['geometry'][0])
 wall_2 = shapely.geometry.shape(input_2['geometry'][0])
 
@@ -36,8 +36,6 @@ def subdivide_wall(wall, subdivision_distance):
         subdivided_coords.append(wall.interpolate(dist))
         dist += subdivision_distance
     return subdivided_coords
-
-#extra_coords = subdivide_wall(wall_1, SUBDIVISION_AMOUNT) + subdivide_wall(wall_2, SUBDIVISION_AMOUNT)
 
 # Convert valley walls into a collection of points for voronoi algorithm
 
@@ -66,23 +64,23 @@ features = [0]
 geometry = [valleypoly]
 df = {'features': features, 'geometry': geometry}
 gdf = gpd.GeoDataFrame(df)
-gdf = gdf.set_crs("EPSG:32615")
-gdf.to_file('C:\LSDTopoTools\Github\Valley-Centerline\WW\Input\ValleyPoly.shp')
+gdf = gdf.set_crs(crs)
+gdf.to_file('Output\Valley_Polygon.shp')
 
 features = [0]
 geometry = [buffer]
 df = {'features': features, 'geometry': geometry}
 gdf = gpd.GeoDataFrame(df)
 gdf = gdf.set_crs("EPSG:32615")
-gdf.to_file('C:\LSDTopoTools\Github\Valley-Centerline\WW\Input\ValleyBuffer.shp')
-# print(coords)
+gdf.to_file('Output\ValleyBuffer.shp')
+
 # Create Voronoi Polygons
 region_polys, region_pts = voronoi_regions_from_coords(points, buffer)
-# print(type(region_polys))
 problem_polys = []
 for key, value in region_polys.items():
     if value.geom_type == 'MultiPolygon':
         problem_polys.append(key)
+
 #Export the voronoi polygons
 for key in problem_polys:
     region_polys.pop(key)
@@ -91,9 +89,9 @@ features = [i for i in range(len(region_polys))]
 geometry = [geom for geom in region_polys.values()]
 df = {'features': features, 'geometry': geometry}
 gdf = gpd.GeoDataFrame(df)
-gdf = gdf.set_crs("EPSG:32615")
+gdf = gdf.set_crs(crs)
 
-gdf.to_file('C:\LSDTopoTools\Github\Valley-Centerline\WW\Input\Voronoi.shp')
+gdf.to_file('Output\Voronoi.shp')
 
 
 print("Voronoi Polygons created.")
@@ -113,16 +111,16 @@ features = [i for i in range(len(edges))]
 geometry = edges
 df = {'features': features, 'geometry': geometry}
 gdf = gpd.GeoDataFrame(df)
-edges_gdf = gdf.set_crs("EPSG:32615")
-edges_gdf.to_file('C:\LSDTopoTools\Github\Valley-Centerline\WW\Input\edges.shp')
+edges_gdf = gdf.set_crs(crs)
+edges_gdf.to_file('Output\edges.shp')
 print("Exported edges")
 
 features = [0, 1]
 geometry = [start_pole, end_pole]
 df = {'features': features, 'geometry': geometry}
 gdf = gpd.GeoDataFrame(df)
-poles_gdf = gdf.set_crs("EPSG:32615")
-poles_gdf.to_file('C:\LSDTopoTools\Github\Valley-Centerline\WW\Input\poles.shp')
+poles_gdf = gdf.set_crs(crs)
+poles_gdf.to_file('Output\poles.shp')
 print("Exported")
 
 
@@ -138,7 +136,7 @@ features = [i for i in range(len(nearest_edges['geometry_y']))]
 geometry = nearest_edges['geometry_y']
 df = {'features': features, 'geometry': geometry}
 nearest_edges = gpd.GeoDataFrame(df)
-nearest_edges.to_file('C:\LSDTopoTools\Github\Valley-Centerline\WW\Input\start_end.shp')
+nearest_edges.to_file('Output\start_end.shp')
 
 ########################################
 # Find shortest path from start to end #
@@ -161,6 +159,6 @@ features = [0]
 geometry = path
 df = {'features': features, 'geometry': geometry}
 centerline_gdf = gpd.GeoDataFrame(df)
-centerline_gdf = centerline_gdf.set_crs("EPSG:32615")
-centerline_gdf.to_file('C:\LSDTopoTools\Github\Valley-Centerline\WW\Input\centerline.shp')
+centerline_gdf = centerline_gdf.set_crs(crs)
+centerline_gdf.to_file('Output\centerline.shp')
 print("Exported")
