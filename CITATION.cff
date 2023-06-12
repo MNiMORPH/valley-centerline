@@ -1,8 +1,12 @@
 cff-version: 0.0.0
 message: "If you use this software, please cite it as below."
 authors:
-  - family-names: Peter
-    given-names: Mitchell
+  - family-names: "Mitchell"
+    given-names: "Peter"
+    orcid: "https://orcid.org/0009-0001-1852-9231"
+  - family-names: "Wickert"
+    given-names: "Andrew D."
+    orcid: "https://orcid.org/0000-0002-9545-3365"
 title: MNiMORPH/valley-centerline: Version 0.0.0
 version: v0.0.0
 date-released: 2023-06-12
