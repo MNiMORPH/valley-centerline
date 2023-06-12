@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/331517823.svg)](https://zenodo.org/badge/latestdoi/331517823)
+
 # valley-centerline
 Tool to pick the centerline of a valley (or other feature) based on the valley walls (or other edges) using Dijkstra's algorithm. Required libraries: geopandas, geovoronoi, momepy, networkx, numpy, shapely
 
