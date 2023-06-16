@@ -4,9 +4,6 @@ authors:
 - family-names: "Mitchell"
   given-names: "Peter"
   orcid: "https://orcid.org/0009-0001-1852-9231"
-- family-names: "Wickert"
-  given-names: "Andrew D."
-  orcid: "https://orcid.org/0000-0002-9545-3365"
 title: "valley-centerline"
 version: 0.0.0
 doi: 10.5281/zenodo.8028591
