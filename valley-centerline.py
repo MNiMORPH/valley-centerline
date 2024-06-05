@@ -1,11 +1,13 @@
 import argparse
 import shapely
+import pandas as pd
 import geopandas as gpd
 from geovoronoi import voronoi_regions_from_coords
 import networkx as nx
 import momepy
 import numpy as np
 
+DEBUG = False
 BUFFER_DISTANCE = 0.0001
 SUBDIVISION_AMOUNT = 200
 '''
@@ -26,9 +28,12 @@ output = args.output
 input_1 = gpd.read_file("Input\SampleData\Whitewater\WallN.shp")
 input_2 = gpd.read_file("Input\SampleData\Whitewater\WallS.shp")
 crs = input_1.crs
+
+walls = pd.concat([input_1, input_2])
 wall_1 = shapely.geometry.shape(input_1['geometry'][0])
 wall_2 = shapely.geometry.shape(input_2['geometry'][0])
 
+'''
 def subdivide_wall(wall, subdivision_distance):
     subdivided_coords = []
     dist = subdivision_distance
@@ -36,6 +41,7 @@ def subdivide_wall(wall, subdivision_distance):
         subdivided_coords.append(wall.interpolate(dist))
         dist += subdivision_distance
     return subdivided_coords
+'''
 
 # Convert valley walls into a collection of points for voronoi algorithm
 
@@ -59,20 +65,17 @@ points = [shapely.Point(i[0], i[1]) for i in coords]
 
 # Generate polygon and buffer from the input walls
 buffer = valleypoly.buffer(BUFFER_DISTANCE)
+if DEBUG:
+    df = {'features': [0], 'geometry': [valleypoly]}
+    gdf = gpd.GeoDataFrame(df)
+    gdf = gdf.set_crs(crs)
+    gdf.to_file('Output\Valley_Polygon.shp')
 
-features = [0]
-geometry = [valleypoly]
-df = {'features': features, 'geometry': geometry}
-gdf = gpd.GeoDataFrame(df)
-gdf = gdf.set_crs(crs)
-gdf.to_file('Output\Valley_Polygon.shp')
 
-features = [0]
-geometry = [buffer]
-df = {'features': features, 'geometry': geometry}
-gdf = gpd.GeoDataFrame(df)
-gdf = gdf.set_crs("EPSG:32615")
-gdf.to_file('Output\ValleyBuffer.shp')
+    df = {'features': [0], 'geometry': [buffer]}
+    gdf = gpd.GeoDataFrame(df)
+    gdf = gdf.set_crs(crs)
+    gdf.to_file('Output\ValleyBuffer.shp')
 
 # Create Voronoi Polygons
 region_polys, region_pts = voronoi_regions_from_coords(points, buffer)
@@ -85,13 +88,14 @@ for key, value in region_polys.items():
 for key in problem_polys:
     region_polys.pop(key)
 
-features = [i for i in range(len(region_polys))]
-geometry = [geom for geom in region_polys.values()]
-df = {'features': features, 'geometry': geometry}
-gdf = gpd.GeoDataFrame(df)
-gdf = gdf.set_crs(crs)
+if DEBUG:
+    features = [i for i in range(len(region_polys))]
+    geometry = [geom for geom in region_polys.values()]
+    df = {'features': features, 'geometry': geometry}
+    gdf = gpd.GeoDataFrame(df)
+    gdf = gdf.set_crs(crs)
 
-gdf.to_file('Output\Voronoi.shp')
+    gdf.to_file('Output\Voronoi.shp')
 
 
 print("Voronoi Polygons created.")
@@ -107,21 +111,24 @@ for poly in region_polys.values():
         if not(edge.intersects(wall_1) or edge.intersects(wall_2)):
             edges = np.append(edges, edge)
 
+
 features = [i for i in range(len(edges))]
 geometry = edges
 df = {'features': features, 'geometry': geometry}
 gdf = gpd.GeoDataFrame(df)
 edges_gdf = gdf.set_crs(crs)
-edges_gdf.to_file('Output\edges.shp')
-print("Exported edges")
+if DEBUG:
+    edges_gdf.to_file('Output\edges.shp')
+    print("Exported edges")
 
 features = [0, 1]
 geometry = [start_pole, end_pole]
 df = {'features': features, 'geometry': geometry}
 gdf = gpd.GeoDataFrame(df)
 poles_gdf = gdf.set_crs(crs)
-poles_gdf.to_file('Output\poles.shp')
-print("Exported")
+if DEBUG:
+    poles_gdf.to_file('Output\poles.shp')
+    print("Exported")
 
 
 
@@ -132,11 +139,14 @@ nearest_edges = gpd.sjoin_nearest(poles_gdf, edges_gdf).merge(edges_gdf, left_on
 cols = list(nearest_edges)
 print(cols)
 print("Found nearest edges!")
+
+
 features = [i for i in range(len(nearest_edges['geometry_y']))]
 geometry = nearest_edges['geometry_y']
 df = {'features': features, 'geometry': geometry}
 nearest_edges = gpd.GeoDataFrame(df)
-nearest_edges.to_file('Output\start_end.shp')
+if DEBUG:
+    nearest_edges.to_file('Output\start_end.shp')
 
 ########################################
 # Find shortest path from start to end #
@@ -156,8 +166,7 @@ path = shapely.LineString(path)
 ########################################
 
 features = [0]
-geometry = path
-df = {'features': features, 'geometry': geometry}
+df = {'features': features, 'geometry': path}
 centerline_gdf = gpd.GeoDataFrame(df)
 centerline_gdf = centerline_gdf.set_crs(crs)
 centerline_gdf.to_file('Output\centerline.shp')
