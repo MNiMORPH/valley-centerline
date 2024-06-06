@@ -12,26 +12,22 @@ BUFFER_DISTANCE = 0.0001
 SUBDIVISION_AMOUNT = 200
 '''
 parser = argparse.ArgumentParser(description='Find the centerline between two lines.')
-parser.add_argument("input_wall_1", help="the first valley wall shapefile")
-parser.add_argument("input_wall_2", help="the second valley wall shapefile")
+parser.add_argument("input_walls.iloc[0].geometry", help="the first valley wall shapefile")
+parser.add_argument("input_walls.iloc[1].geometry", help="the second valley wall shapefile")
 parser.add_argument("output", help="the filepath for the output shapefile")
 
 
 args = parser.parse_args()
-input_1 = gpd.read_file(args.input_wall_1)
-input_2 = gpd.read_file(args.input_wall_2)
+input_1 = gpd.read_file(args.input_walls.iloc[0].geometry)
+input_2 = gpd.read_file(args.input_walls.iloc[1].geometry)
 output = args.output
 '''
 
 # Import line shapefiles
 
-input_1 = gpd.read_file("Input\SampleData\Whitewater\WallN.shp")
-input_2 = gpd.read_file("Input\SampleData\Whitewater\WallS.shp")
-crs = input_1.crs
-
-walls = pd.concat([input_1, input_2])
-wall_1 = shapely.geometry.shape(input_1['geometry'][0])
-wall_2 = shapely.geometry.shape(input_2['geometry'][0])
+#Explode function ensures each wall is a LineString rather than a MultiLineString
+walls = gpd.read_file("Input\SampleData\Whitewater\WhitewaterWalls.shp").explode()
+crs = walls.crs
 
 '''
 def subdivide_wall(wall, subdivision_distance):
@@ -45,17 +41,17 @@ def subdivide_wall(wall, subdivision_distance):
 
 # Convert valley walls into a collection of points for voronoi algorithm
 
-coords = wall_1.coords[:] + wall_2.coords[::-1]
+coords = walls.iloc[0].geometry.coords[:] + walls.iloc[1].geometry.coords[::-1]
 valleypoly = shapely.geometry.Polygon(coords)
-start_boundary = shapely.geometry.LineString([wall_1.coords[0], wall_2.coords[0]])
-end_boundary = shapely.geometry.LineString([wall_1.coords[-1], wall_2.coords[-1]])
+start_boundary = shapely.geometry.LineString([walls.iloc[0].geometry.coords[0], walls.iloc[1].geometry.coords[0]])
+end_boundary = shapely.geometry.LineString([walls.iloc[0].geometry.coords[-1], walls.iloc[1].geometry.coords[-1]])
 
 # Handle the case of both walls being drawn in opposite directions
 if not valleypoly.is_valid:
-    coords = wall_1.coords[:] + wall_2.coords[:]
+    coords = walls.iloc[0].geometry.coords[:] + walls.iloc[1].geometry.coords[:]
     valleypoly = shapely.geometry.Polygon(coords)
-    start_boundary = shapely.geometry.LineString([wall_1.coords[0], wall_2.coords[-1]])
-    end_boundary = shapely.geometry.LineString([wall_1.coords[-1], wall_2.coords[0]])
+    start_boundary = shapely.geometry.LineString([walls.iloc[0].geometry.coords[0], walls.iloc[1].geometry.coords[-1]])
+    end_boundary = shapely.geometry.LineString([walls.iloc[0].geometry.coords[-1], walls.iloc[1].geometry.coords[0]])
 
 start_pole = start_boundary.interpolate(0.5, normalized=True)
 end_pole = end_boundary.interpolate(0.5, normalized=True)
@@ -108,7 +104,7 @@ edges = np.array([])
 for poly in region_polys.values():
     for i in range(len(poly.exterior.coords) - 1):
         edge = shapely.geometry.LineString((poly.exterior.coords[i], poly.exterior.coords[i+1]))
-        if not(edge.intersects(wall_1) or edge.intersects(wall_2)):
+        if not(edge.intersects(walls.iloc[0].geometry) or edge.intersects(walls.iloc[1].geometry)):
             edges = np.append(edges, edge)
 
 
