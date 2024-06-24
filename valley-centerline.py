@@ -2,12 +2,11 @@ import argparse
 import shapely
 import pandas as pd
 import geopandas as gpd
-from geovoronoi import voronoi_regions_from_coords
 import networkx as nx
 import momepy
 import numpy as np
 
-DEBUG = False
+DEBUG = True
 BUFFER_DISTANCE = 0.0001
 SUBDIVISION_AMOUNT = 200
 '''
@@ -26,7 +25,7 @@ output = args.output
 # Import line shapefiles
 
 #Explode function ensures each wall is a LineString rather than a MultiLineString
-walls = gpd.read_file("Input\SampleData\Whitewater\WhitewaterWalls.shp").explode()
+walls = gpd.read_file("Input\SampleData\Whitewater\WhitewaterWalls.gpkg").explode()
 crs = walls.crs
 
 '''
@@ -57,7 +56,7 @@ start_pole = start_boundary.interpolate(0.5, normalized=True)
 end_pole = end_boundary.interpolate(0.5, normalized=True)
 
 #coords = coords + extra_coords
-points = [shapely.Point(i[0], i[1]) for i in coords]
+points = shapely.MultiPoint([shapely.Point(i[0], i[1]) for i in coords])
 
 # Generate polygon and buffer from the input walls
 buffer = valleypoly.buffer(BUFFER_DISTANCE)
@@ -70,10 +69,13 @@ if DEBUG:
 
     df = {'features': [0], 'geometry': [buffer]}
     gdf = gpd.GeoDataFrame(df)
-    gdf = gdf.set_crs(crs)
-    gdf.to_file('Output\ValleyBuffer.shp')
+    buff = gdf.set_crs(crs)
+    buff.to_file('Output\ValleyBuffer.shp')
 
 # Create Voronoi Polygons
+
+voronoi_edges = shapely.voronoi_polygons(points, extend_to=buffer, only_edges = True)
+'''
 region_polys, region_pts = voronoi_regions_from_coords(points, buffer)
 problem_polys = []
 for key, value in region_polys.items():
@@ -90,24 +92,34 @@ if DEBUG:
     df = {'features': features, 'geometry': geometry}
     gdf = gpd.GeoDataFrame(df)
     gdf = gdf.set_crs(crs)
+'''
 
-    gdf.to_file('Output\Voronoi.shp')
+## Clean this up later
+geom = [voronoi_edges]
+print(len(geom))
+
+voronoi_edges_df = {'features': 0, 'geometry': [voronoi_edges]}
+voronoi_edges = gpd.GeoDataFrame(voronoi_edges_df)
+voronoi_edges = voronoi_edges.set_crs(crs)
+voronoi_edges = voronoi_edges.clip(buff)
+voronoi_edges = voronoi_edges.explode()
+trimmed = voronoi_edges.sjoin(walls, how='left', predicate='intersects')
+trimmed = trimmed.loc[trimmed['index_right0'].isna()]
+trimmed = trimmed[['features', 'geometry']]
+trimmed = trimmed.reset_index()
+trimmed.to_file('Output\\trimmed.gpkg')
+voronoi_edges.to_file('Output\Voronoi.gpkg')
 
 
-print("Voronoi Polygons created.")
+
+print("Voronoi Edges created.")
 
 
 ########################################
 # Find potential start/end edges       #
 ########################################
-edges = np.array([])
-for poly in region_polys.values():
-    for i in range(len(poly.exterior.coords) - 1):
-        edge = shapely.geometry.LineString((poly.exterior.coords[i], poly.exterior.coords[i+1]))
-        if not(edge.intersects(walls.iloc[0].geometry) or edge.intersects(walls.iloc[1].geometry)):
-            edges = np.append(edges, edge)
 
-
+'''
 features = [i for i in range(len(edges))]
 geometry = edges
 df = {'features': features, 'geometry': geometry}
@@ -116,6 +128,7 @@ edges_gdf = gdf.set_crs(crs)
 if DEBUG:
     edges_gdf.to_file('Output\edges.shp')
     print("Exported edges")
+'''
 
 features = [0, 1]
 geometry = [start_pole, end_pole]
@@ -131,11 +144,11 @@ if DEBUG:
 ########################################
 # Find nearest edges to poles          #
 ########################################
-nearest_edges = gpd.sjoin_nearest(poles_gdf, edges_gdf).merge(edges_gdf, left_on="index_right", right_index=True)
+nearest_edges = trimmed.iloc[gpd.sjoin_nearest(poles_gdf, trimmed)['index_right']].reset_index()
 cols = list(nearest_edges)
 print(cols)
 print("Found nearest edges!")
-
+'''
 
 features = [i for i in range(len(nearest_edges['geometry_y']))]
 geometry = nearest_edges['geometry_y']
@@ -144,11 +157,12 @@ nearest_edges = gpd.GeoDataFrame(df)
 if DEBUG:
     nearest_edges.to_file('Output\start_end.shp')
 
+'''
 ########################################
 # Find shortest path from start to end #
 ########################################
 
-graph = momepy.gdf_to_nx(edges_gdf)
+graph = momepy.gdf_to_nx(trimmed)
 
 start = nearest_edges['geometry'][0].coords[0]
 end = nearest_edges['geometry'][1].coords[0]
