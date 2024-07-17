@@ -26,20 +26,10 @@ def main():
 
     #Explode function ensures each wall is a LineString rather than a MultiLineString
     walls = gpd.read_file("Input\SampleData\Whitewater\WhitewaterWalls.gpkg").explode()
-    find_centerline(walls)
+    extract_centerline(walls)
 
-def find_centerline(walls):
+def extract_centerline(walls):
     crs = walls.crs
-
-    '''
-    def subdivide_wall(wall, subdivision_distance):
-        subdivided_coords = []
-        dist = subdivision_distance
-        while dist < wall.length:
-            subdivided_coords.append(wall.interpolate(dist))
-            dist += subdivision_distance
-        return subdivided_coords
-    '''
 
     # Convert valley walls into a collection of points for voronoi algorithm
 
@@ -76,23 +66,10 @@ def find_centerline(walls):
 
     # Create Voronoi Polygons
 
-    voronoi_edges = shapely.voronoi_polygons(points, extend_to=buffer, only_edges = True)
-
-    ## Clean this up later
-    geom = [voronoi_edges]
-    print(len(geom))
-
-    voronoi_edges_df = {'features': 0, 'geometry': [voronoi_edges]}
-    voronoi_edges = gpd.GeoDataFrame(voronoi_edges_df, crs=crs)
-    voronoi_edges = voronoi_edges.explode()
-    trimmed = voronoi_edges.sjoin(walls, how='left', predicate='intersects')
-    trimmed = trimmed.loc[trimmed['index_right0'].isna()]
-    trimmed = trimmed[['features', 'geometry']]
-    trimmed = trimmed.reset_index()
-    trimmed.to_file('Output\\trimmed.gpkg')
-    voronoi_edges.to_file('Output\Voronoi.gpkg')
-
-
+    voronoi_edges = {'features': 0, 'geometry': [shapely.voronoi_polygons(points, extend_to=buffer, only_edges = True)]}
+    voronoi_edges = gpd.GeoDataFrame(voronoi_edges, crs=crs).explode()
+    voronoi_edges = voronoi_edges.sjoin(walls, how='left', predicate='intersects')
+    voronoi_edges = voronoi_edges.loc[voronoi_edges['index_right0'].isna()].reset_index()
 
     print("Voronoi Edges created.")
 
@@ -105,14 +82,11 @@ def find_centerline(walls):
     geometry = [start_pole, end_pole]
     df = {'features': features, 'geometry': geometry}
     poles_gdf = gpd.GeoDataFrame(df, crs=crs)
-    if DEBUG:
-        poles_gdf.to_file('Output\poles.gpkg')
-        print("Exported")
 
     ########################################
     # Find nearest edges to poles          #
     ########################################
-    nearest_edges = trimmed.iloc[gpd.sjoin_nearest(poles_gdf, trimmed)['index_right']].reset_index()
+    nearest_edges = voronoi_edges.iloc[gpd.sjoin_nearest(poles_gdf, voronoi_edges)['index_right']].reset_index()
     cols = list(nearest_edges)
     print(cols)
     print("Found nearest edges!")
@@ -121,7 +95,7 @@ def find_centerline(walls):
     # Find shortest path from start to end #
     ########################################
 
-    graph = momepy.gdf_to_nx(trimmed)
+    graph = momepy.gdf_to_nx(voronoi_edges)
 
     start = nearest_edges['geometry'][0].coords[0]
     end = nearest_edges['geometry'][1].coords[0]
@@ -136,6 +110,7 @@ def find_centerline(walls):
     centerline_gdf = gpd.GeoDataFrame(df, crs=crs)
     centerline_gdf.to_file('Output\centerline.gpkg')
     print("Exported")
+
     return centerline_gdf
 
 if __name__ == "__main__":
