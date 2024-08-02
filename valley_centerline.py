@@ -4,6 +4,7 @@ import pandas as pd
 import geopandas as gpd
 import networkx as nx
 import momepy
+import os
 
 DEBUG = True
 BUFFER_DISTANCE = 0.0001
@@ -22,13 +23,15 @@ def main():
     output = args.output
     '''
 
-    # Import line shapefiles
+    # Import wall vector file
 
     #Explode function ensures each wall is a LineString rather than a MultiLineString
-    walls = gpd.read_file("Input\SampleData\Whitewater\WhitewaterWalls.gpkg").explode()
+    walls = gpd.read_file(os.path.join(os.getcwd(), "Input", "SampleData", "Whitewater", "WhitewaterWalls.gpkg")).explode()
     extract_centerline(walls)
 
 def extract_centerline(walls):
+    if not os.path.exists(os.path.join(os.getcwd(), "Output")):
+        os.makedirs(os.path.join(os.getcwd(), "Output"))
     crs = walls.crs
 
     # Convert valley walls into a collection of points for voronoi algorithm
@@ -54,22 +57,13 @@ def extract_centerline(walls):
 
     # Generate polygon and buffer from the input walls
     buffer = valleypoly.buffer(BUFFER_DISTANCE)
-    if DEBUG:
-        df = {'features': [0], 'geometry': [valleypoly]}
-        gdf = gpd.GeoDataFrame(df, crs=crs)
-        gdf.to_file('Output\Valley_Polygon.gpkg')
-
-
-        df = {'features': [0], 'geometry': [buffer]}
-        buff = gpd.GeoDataFrame(df, crs=crs)
-        buff.to_file('Output\ValleyBuffer.gpkg')
 
     # Create Voronoi Polygons
 
     voronoi_edges = {'features': 0, 'geometry': [shapely.voronoi_polygons(points, extend_to=buffer, only_edges = True)]}
     voronoi_edges = gpd.GeoDataFrame(voronoi_edges, crs=crs).explode()
     voronoi_edges = voronoi_edges.sjoin(walls, how='left', predicate='intersects')
-    voronoi_edges = voronoi_edges.loc[voronoi_edges['index_right0'].isna()].reset_index()
+    voronoi_edges = voronoi_edges.loc[voronoi_edges['index_right'].isna()].reset_index().drop(columns=['features', 'index_right', 'begin', 'end', 'begin_2', 'end_2', 'index'])
 
     print("Voronoi Edges created.")
 
@@ -108,7 +102,7 @@ def extract_centerline(walls):
 
     df = {'features': [0], 'geometry': path}
     centerline_gdf = gpd.GeoDataFrame(df, crs=crs)
-    centerline_gdf.to_file('Output\centerline.gpkg')
+    centerline_gdf.to_file(os.path.join(os.getcwd(), "Output", "centerline.gpkg"))
     print("Exported")
 
     return centerline_gdf
