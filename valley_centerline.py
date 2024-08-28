@@ -11,25 +11,23 @@ BUFFER_DISTANCE = 0.0001
 SUBDIVISION_AMOUNT = 200
 
 def main():
-    '''
-    parser = argparse.ArgumentParser(description='Find the centerline between two lines.')
-    parser.add_argument("input_walls.iloc[0].geometry", help="the filepath of the valley wall ")
-    parser.add_argument("output", help="the filepath for the output shapefile")
+    # Get arguments for input and output files
+    parser = argparse.ArgumentParser(description='Find the centerline between two walls.')
+    parser.add_argument("input", help="the filepath of the feature containing the two walls between which the centerline will be found")
+    parser.add_argument("output", help="the filepath where the centerline will be saved")
 
 
     args = parser.parse_args()
-    input_1 = gpd.read_file(args.input_walls.iloc[0].geometry)
-    input_2 = gpd.read_file(args.input_walls.iloc[1].geometry)
+    input = gpd.read_file(args.input)
     output = args.output
-    '''
 
     # Import wall vector file
 
     #Explode function ensures each wall is a LineString rather than a MultiLineString
-    walls = gpd.read_file(os.path.join(os.getcwd(), "Input", "SampleData", "Whitewater", "WhitewaterWalls.gpkg")).explode()
-    extract_centerline(walls)
+    walls = input.explode()
+    extract_centerline(walls, output)
 
-def extract_centerline(walls):
+def extract_centerline(walls, output):
     if not os.path.exists(os.path.join(os.getcwd(), "Output")):
         os.makedirs(os.path.join(os.getcwd(), "Output"))
     crs = walls.crs
@@ -102,7 +100,7 @@ def extract_centerline(walls):
 
     df = {'features': [0], 'geometry': path}
     centerline_gdf = gpd.GeoDataFrame(df, crs=crs)
-    centerline_gdf.to_file(os.path.join(os.getcwd(), "Output", "centerline.gpkg"))
+    centerline_gdf.to_file(output)
     print("Exported")
 
     return centerline_gdf
